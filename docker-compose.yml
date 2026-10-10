@@ -1,0 +1,41 @@
+# docker compose up --build   ->  dashboard http://localhost:8080 | API docs http://localhost:8000/docs
+# First start: downloads the 14 CSVs (~80 MB) from the dataset repository, cleans & loads them into PostgreSQL,
+# trains the models and generates recommendations (a few minutes; the dashboard shows progress). Give Docker >= 4 GB RAM.
+# Cloud database instead of local Postgres: set DATABASE_URL (+ CLOUDSQL_INSTANCE) in .env and use --profile cloud.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: retail
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-retail}
+      POSTGRES_DB: retail
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro   # creates all tables on first start
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U retail"], interval: 5s, retries: 12}
+
+  api:
+    build: {context: ., dockerfile: Dockerfile}
+    env_file: [.env]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://retail:${DB_PASSWORD:-retail}@db:5432/retail}
+    depends_on:
+      db: {condition: service_healthy, required: false}
+    volumes:
+      - models:/srv/models      # trained models survive restarts
+      - dataset:/data           # downloaded CSVs (never committed to git)
+    ports: ["8000:8000"]
+
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["8080:80"]
+
+  cloudsql-proxy:               # optional sidecar for Google Cloud SQL (private, IAM-authenticated)
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+    command: ["--address=0.0.0.0", "--port=5432", "${CLOUDSQL_INSTANCE:-x:y:z}"]
+    volumes: ["${GOOGLE_APPLICATION_CREDENTIALS:-./sa.json}:/sa.json:ro"]
+    environment: {GOOGLE_APPLICATION_CREDENTIALS: /sa.json}
+    profiles: ["cloud"]
+
+volumes: {pgdata: {}, models: {}, dataset: {}}

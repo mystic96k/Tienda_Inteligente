@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetailIQ · Glazed Co.</title>
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23dfe9f8'/%3E%3Cpath d='M7 21l6-7 5 4 7-9' stroke='%232f6df6' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="bar glass">
+  <div class="brand"><span class="mark"></span><b>RetailIQ</b><span class="sub">Glazed Co.</span></div>
+  <div class="bar-mid">
+    <label class="sr" for="store">Tienda</label>
+    <div class="select"><select id="store"></select></div>
+    <span class="asof" id="asof"></span>
+  </div>
+  <div class="bar-end">
+    <button id="rerun" class="btn solid" title="Reentrenar modelos y regenerar recomendaciones">Recalcular</button>
+  </div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis" aria-label="Indicadores"></section>
+
+  <section class="row r-main">
+    <article class="glass card rise" style="--d:.05s">
+      <div class="card-h"><h2>Ventas netas diarias</h2><span class="hint" id="modelinfo"></span></div>
+      <div class="chart"><canvas id="trend" role="img" aria-label="Ventas netas diarias y pronóstico a 14 días"></canvas></div>
+      <details class="more"><summary>Ver como tabla</summary><div class="tbl"><table id="trendTable"></table></div></details>
+    </article>
+
+    <article class="glass card rise ai" style="--d:.1s">
+      <div class="card-h"><h2>Copiloto IA</h2><span class="chip" id="aisource">Gemini</span></div>
+      <div id="brief" class="brief"><div class="skeleton"></div></div>
+      <form id="askForm" class="ask">
+        <input id="question" placeholder="Pregunta: ¿por qué hay tanta merma en esta tienda?" autocomplete="off">
+        <button class="btn solid">Preguntar</button>
+      </form>
+      <div id="answer" class="answer" aria-live="polite"></div>
+    </article>
+  </section>
+
+  <section class="glass card rise" style="--d:.15s">
+    <div class="card-h wrap">
+      <div><h2>Acciones recomendadas</h2><span class="hint" id="recsum"></span></div>
+      <div class="seg" id="seg" role="tablist">
+        <i class="thumb"></i>
+        <button data-k="" class="on" role="tab">Todas</button>
+        <button data-k="inventory" role="tab">Inventario</button>
+        <button data-k="promotion" role="tab">Promociones</button>
+        <button data-k="staffing" role="tab">Personal</button>
+      </div>
+    </div>
+    <div id="recs" class="recs"></div>
+  </section>
+
+  <section class="row r-two">
+    <article class="glass card rise" style="--d:.2s">
+      <div class="card-h"><h2 id="staffTitle">Personal: próximos 14 días</h2><span class="hint" id="staffHint"></span></div>
+      <div id="staff"></div>
+    </article>
+    <article class="glass card rise" style="--d:.25s">
+      <div class="card-h"><h2>Inventario: dónde actuar</h2><span class="hint">según pronóstico de demanda</span></div>
+      <div id="inv"></div>
+    </article>
+  </section>
+
+  <section class="row r-two">
+    <article class="glass card rise" style="--d:.3s">
+      <div class="card-h"><h2>Promociones: esperado vs. real</h2><span class="hint">incremento de unidades por tienda-día</span></div>
+      <div class="chart short"><canvas id="promoChart" role="img" aria-label="Incremento esperado contra real por promoción"></canvas></div>
+      <div id="promoNotes" class="notes"></div>
+    </article>
+    <article class="glass card rise" style="--d:.35s">
+      <div class="card-h"><h2>Proveedores: contrato vs. real</h2><span class="hint">líneas de orden entregadas</span></div>
+      <div id="sup"></div>
+    </article>
+  </section>
+
+  <section class="glass card rise" style="--d:.4s">
+    <div class="card-h"><h2>Tiendas</h2><span class="hint">últimos 30 días del dataset</span></div>
+    <div class="tbl"><table id="stores"></table></div>
+  </section>
+
+  <section class="row r-two">
+    <article class="glass card rise" style="--d:.45s">
+      <div class="card-h"><h2>Calidad de datos</h2><span class="hint">qué se encontró y cómo se trató</span></div>
+      <div class="tbl tall"><table id="dq"></table></div>
+    </article>
+    <article class="glass card rise" id="pbi" style="--d:.5s">
+      <div class="card-h"><h2>Power BI</h2></div>
+      <div id="pbiBody" class="pbi"></div>
+    </article>
+  </section>
+
+  <footer class="foot">Datos 100 % sintéticos del hackathon Road2Tech (empresa ficticia “Glazed Co.”). Uso restringido al evento. Las cifras de impacto son estimaciones basadas en los supuestos indicados.</footer>
+</main>
+<div id="toast" class="toast glass" role="status"></div>
+<script src="vendor/chart.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

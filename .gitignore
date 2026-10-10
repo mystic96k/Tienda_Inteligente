@@ -1,0 +1,10 @@
+.env
+*.db
+models/
+__pycache__/
+.pytest_cache/
+sa.json
+.venv/
+# dataset CSVs are never committed (hackathon rules: no redistribution)
+data/*
+!data/README.md

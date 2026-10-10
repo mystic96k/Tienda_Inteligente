@@ -1,0 +1,7 @@
+models/
+*.db
+.env
+**/__pycache__
+.git
+data/
+.venv/
