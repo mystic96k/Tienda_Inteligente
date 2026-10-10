@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Administrativo - Supermercado</title>
+    <!-- Íconos de FontAwesome para el toque de supermercado -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="brand-header">
+            <div class="brand-icon">
+                <i class="fa-solid fa-cart-shopping"></i>
+            </div>
+            <h1>SuperMarket</h1>
+            <span class="badge">Panel Administrativo</span>
+        </div>
+        
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">
+                    <i class="fa-solid fa-user"></i> Usuario
+                </label>
+                <input type="text" id="username" name="username" required placeholder="Ej. admin_tienda" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label for="password">
+                    <i class="fa-solid fa-lock"></i> Contraseña
+                </label>
+                <input type="password" id="password" name="password" required placeholder="••••••••">
+            </div>
+
+            <div id="message" class="message hidden"></div>
+
+            <button type="submit" id="btnLogin">
+                <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión
+            </button>
+        </form>
+
+        <div class="login-footer">
+            <p><i class="fa-solid fa-shield-halved"></i> Acceso restringido solo a personal autorizado</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

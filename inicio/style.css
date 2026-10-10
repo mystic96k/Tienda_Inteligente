@@ -1,0 +1,185 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    /* Fondo con un suave patrón de supermercado / frescura */
+    background: linear-gradient(135deg, #0e8345 0%, #054a25 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.login-container {
+    background-color: #ffffff;
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Franja superior decorativa tipo tienda */
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(90deg, #ffc107 0%, #28a745 50%, #198754 100%);
+}
+
+.brand-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.brand-icon {
+    width: 65px;
+    height: 65px;
+    background-color: #e8f5e9;
+    color: #198754;
+    font-size: 1.8rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.8rem;
+    box-shadow: 0 4px 10px rgba(25, 135, 84, 0.15);
+}
+
+.brand-header h1 {
+    color: #1a252c;
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.badge {
+    display: inline-block;
+    background-color: #fff3cd;
+    color: #856404;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    margin-top: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #ffeeba;
+}
+
+.input-group {
+    margin-bottom: 1.25rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #495057;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.input-group label i {
+    color: #198754;
+    margin-right: 5px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 1.5px solid #ced4da;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background-color: #f8f9fa;
+    transition: all 0.25s ease;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #198754;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.15);
+}
+
+button {
+    width: 100%;
+    padding: 0.85rem;
+    background: linear-gradient(180deg, #28a745 0%, #198754 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+button:hover {
+    background: linear-gradient(180deg, #218838 0%, #146c43 100%);
+    box-shadow: 0 6px 15px rgba(25, 135, 84, 0.4);
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button:disabled {
+    background: #adb5bd;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Mensajes de feedback */
+.message {
+    margin-bottom: 1.2rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.message.success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+}
+
+.message.error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+
+.hidden {
+    display: none;
+}
+
+.login-footer {
+    margin-top: 1.8rem;
+    text-align: center;
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.login-footer p {
+    font-size: 0.78rem;
+    color: #6c757d;
+}
