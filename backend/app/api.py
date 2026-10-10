@@ -72,12 +72,25 @@ def context_for(db, store_id):
         q = q.where(m.Recommendation.store_id == store_id)
     run = db.scalars(select(m.ModelRun).order_by(m.ModelRun.id.desc())).first()
     promos = _df(db, "select p.promo_name, pp.realized_uplift_pct, pp.expected_uplift_pct, pp.note from promo_performance pp join promotions p using(promo_id)")
+    wx = _df(db, """select w.site_id, w.date, w.temp_max_c, w.temp_min_c, w.precip_mm from weather_daily w
+                    where (:sid is null or w.site_id = (select site_id from stores where store_id = :sid))""", sid=store_id)
+    if len(wx):
+        wx["date"] = pd.to_datetime(wx.date)
+        wx = wx[wx.date > wx.date.max() - pd.Timedelta(days=14)].groupby("date")[["temp_max_c", "temp_min_c", "precip_mm"]].mean().round(1)
+        wx.insert(0, "date", wx.index.strftime("%Y-%m-%d"))
     return dict(scope=names.get(store_id, "Toda la red"), kpis=kpis(db, store_id),
                 top_recommendations=[rec_dict(r, names[r.store_id]) for r in db.scalars(q)],
-                promo_scorecard=promos.to_dict("records"), model=run.metrics if run else None)
+                promo_scorecard=promos.to_dict("records"), model=run.metrics if run else None,
+                weather_last_14_days=wx.to_dict("records"))
 
 
 # ------------------------------------------------------------------ endpoints
+def _admin(x_admin_key: Optional[str] = Header(None)):
+    """Write actions (recalculate, approve/dismiss, AI copy) need the admin key when ADMIN_KEY is set."""
+    if settings.ADMIN_KEY and x_admin_key != settings.ADMIN_KEY:
+        raise HTTPException(401, "admin key required")
+
+
 @router.get("/health")
 def health():
     from .state import status
@@ -88,7 +101,10 @@ def health():
 @router.get("/config")
 def config():
     return dict(currency=settings.CURRENCY, gemini=gemini.available(), powerbi_embed_url=settings.POWERBI_EMBED_URL,
-                export_auth=bool(settings.EXPORT_API_KEY), wage=settings.WAGE_PER_HOUR)
+                export_auth=bool(settings.EXPORT_API_KEY), wage=settings.WAGE_PER_HOUR, admin_required=bool(settings.ADMIN_KEY),
+                assumptions=dict(wage_per_hour=settings.WAGE_PER_HOUR, service_z=settings.SERVICE_Z, understaff_leakage=settings.UNDERSTAFF_LEAKAGE,
+                                 carry_cost_per_day=settings.CARRY_COST_PER_DAY, staff_tolerance=settings.STAFF_TOLERANCE,
+                                 splh_percentile=settings.SPLH_PERCENTILE, min_staff_ratio=settings.MIN_STAFF_RATIO))
 
 
 @router.get("/stores")
@@ -140,7 +156,7 @@ def recommendations(store_id: Optional[str] = None, kind: Optional[str] = None, 
     return [rec_dict(r, names[r.store_id]) for r in db.scalars(q)]
 
 
-@router.post("/recommendations/{rid}/{action}")
+@router.post("/recommendations/{rid}/{action}", dependencies=[Depends(_admin)])
 def act(rid: int, action: str, db: Session = Depends(get_db)):
     r = db.get(m.Recommendation, rid)
     if not r or action not in ("approve", "dismiss"):
@@ -158,6 +174,95 @@ def staffing(store_id: Optional[str] = None, db: Session = Depends(get_db)):
              **({"sid": store_id} if store_id else {}))
     return [dict(store_id=r.store_id, date=str(r.plan_date), sales=round(r.forecast_net_sales), required=round(r.required_hours, 1),
                  baseline=round(r.baseline_hours, 1), delta=round(r.delta_hours, 1), status=r.status) for r in df.itertuples()]
+
+
+@router.get("/plan")
+def daily_plan(store_id: str, db: Session = Depends(get_db)):
+    """Everything to do in one store, day by day: reorders, promotions, staffing."""
+    name = db.execute(text("select store_name from stores where store_id = :s"), {"s": store_id}).scalar()
+    if name is None:
+        raise HTTPException(404, "unknown store")
+    status = dict(db.execute(text("select id, status from recommendations")).all())
+    days: dict = {}
+    for r in db.scalars(select(m.DailyPlan).where(m.DailyPlan.store_id == store_id).order_by(
+            m.DailyPlan.plan_date, m.DailyPlan.priority, m.DailyPlan.est_impact.desc())):
+        st = status.get(r.rec_id) if r.rec_id else None
+        if st == "dismissed":
+            continue
+        d = days.setdefault(str(r.plan_date), dict(date=str(r.plan_date), orders=[], promos=[], staff=None))
+        item = dict(id=r.id, kind=r.kind, sku=r.sku, title=r.title, detail=r.detail, qty=r.qty, est_impact=r.est_impact,
+                    priority=r.priority, rec_id=r.rec_id, rec_status=st, **(r.payload or {}))
+        if r.kind == "order":
+            d["orders"].append(item)
+        elif r.kind == "promo":
+            d["promos"].append(item)
+        else:
+            d["staff"] = item
+    out = []
+    for d in sorted(days.values(), key=lambda x: x["date"]):
+        d["impact"] = round(sum(i["est_impact"] or 0 for i in d["orders"] + d["promos"]) + (d["staff"]["est_impact"] if d["staff"] else 0), 2)
+        out.append(d)
+    return dict(store_id=store_id, store=name, days=out)
+
+
+@router.get("/plan/orders.csv")
+def plan_orders_csv(store_id: str, date: Optional[str] = None, db: Session = Depends(get_db)):
+    """Purchase-order lines for one store (one day, or the whole horizon), ready to send to suppliers."""
+    q = select(m.DailyPlan).where(m.DailyPlan.store_id == store_id, m.DailyPlan.kind == "order").order_by(m.DailyPlan.plan_date, m.DailyPlan.sku)
+    status = dict(db.execute(text("select id, status from recommendations")).all())
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["store_id", "order_date", "arrival_date", "supplier", "sku", "product", "action", "units", "cases", "case_size"])
+    for r in db.scalars(q):
+        if date and str(r.plan_date) != date or status.get(r.rec_id) == "dismissed":
+            continue
+        p = r.payload or {}
+        if p.get("action") != "reorder":
+            continue
+        w.writerow([r.store_id, r.plan_date, p.get("arrives"), p.get("supplier"), r.sku, p.get("product"), "order",
+                    p.get("order_qty"), p.get("cases"), p.get("case_size")])
+    name = f"pedidos_{store_id}{'_' + date if date else ''}.csv"
+    return Response(out.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.get("/plan/network")
+def daily_plan_network(db: Session = Depends(get_db)):
+    """One line per store and day (counts + staffing balance) for the network view."""
+    df = _df(db, """select p.store_id, s.store_name, p.plan_date, p.kind, p.est_impact, p.rec_id
+                    from daily_plan p join stores s using(store_id)""")
+    st = _df(db, "select store_id, plan_date, status, delta_hours from staffing_plan")
+    status = dict(db.execute(text("select id, status from recommendations")).all())
+    cells: dict = {}
+    for r in df.itertuples():
+        if pd.notna(r.rec_id) and status.get(int(r.rec_id)) == "dismissed":
+            continue
+        key = (r.store_id, str(r.plan_date)[:10])
+        c = cells.setdefault(key, dict(store_id=r.store_id, store=r.store_name, date=key[1], orders=0, promos=0, status=None, delta=0.0, impact=0.0))
+        c["impact"] += float(r.est_impact or 0)
+        if r.kind == "order":
+            c["orders"] += 1
+        elif r.kind == "promo":
+            c["promos"] += 1
+    for r in st.itertuples():
+        c = cells.get((r.store_id, str(r.plan_date)[:10]))
+        if c:
+            c["status"], c["delta"] = r.status, float(r.delta_hours)
+    dates = sorted({k[1] for k in cells})
+    return dict(dates=dates, cells=[{**c, "impact": round(c["impact"], 2), "delta": round(c["delta"], 1)} for c in cells.values()])
+
+
+@router.get("/backtest")
+def backtest_latest(db: Session = Depends(get_db)):
+    r = db.scalars(select(m.BacktestResult).order_by(m.BacktestResult.id.desc())).first()
+    if not r:
+        return {"status": "pending"}
+    return {"status": "ready", "created_at": r.created_at.isoformat(), **r.results}
+
+
+@router.post("/backtest/run", dependencies=[Depends(_admin)])
+def backtest_run(db: Session = Depends(get_db)):
+    from .services import backtest
+    return {"status": "ready", **backtest.run(db)}
 
 
 @router.get("/promotions/performance")
@@ -181,7 +286,7 @@ def dq(db: Session = Depends(get_db)):
             for r in db.scalars(select(m.DqIssue).order_by(m.DqIssue.rows_affected.desc()))]
 
 
-@router.post("/engine/run")
+@router.post("/engine/run", dependencies=[Depends(_admin)])
 def run_engine(db: Session = Depends(get_db)):
     from .ml import forecast as fc
     metrics = fc.train_all(db)
@@ -213,7 +318,7 @@ def ai_ask(req: AskReq, db: Session = Depends(get_db)):
     return gemini.ask(req.question, context_for(db, req.store_id))
 
 
-@router.post("/ai/promo-copy/{rid}")
+@router.post("/ai/promo-copy/{rid}", dependencies=[Depends(_admin)])
 def ai_copy(rid: int, db: Session = Depends(get_db)):
     r = db.get(m.Recommendation, rid)
     if not r or r.kind != "promotion":
@@ -233,6 +338,7 @@ DATASETS = {
     "store_forecast": "select * from store_forecast",
     "demand_forecast": "select * from demand_forecast",
     "staffing_plan": "select * from staffing_plan",
+    "daily_plan": "select id, store_id, plan_date, kind, sku, title, detail, qty, est_impact, priority, rec_id from daily_plan",
     "recommendations": "select id, store_id, kind, priority, title, summary, est_impact, status, created_at from recommendations",
     "promo_performance": "select * from promo_performance",
     "supplier_performance": "select * from supplier_performance",

@@ -19,7 +19,7 @@ DDL completo: `db/01_schema.sql` (generado con `scripts/export_schema.py`); vist
 Capas: dimensiones (`sites, stores, store_closures, suppliers, products, product_barcodes, calendar, promotions, prices, weather_daily`) →
 hechos (`sales_daily, inventory_daily, purchase_orders, store_daily_kpis`) → gobernanza (`dq_issues`) →
 analítica (`demand_forecast, store_forecast, staffing_plan, promo_performance, supplier_performance, model_runs`) →
-decisiones (`recommendations`).
+decisiones (`recommendations`, `daily_plan`).
 
 ```mermaid
 erDiagram
@@ -39,6 +39,13 @@ erDiagram
   stores ||--o{ staffing_plan : plans
   stores ||--o{ recommendations : gets
 ```
+
+## Plan del día (por sucursal y por día)
+`daily_plan` guarda, para cada tienda y cada fecha del horizonte de 14 días, tres tipos de fila:
+- **order**: qué reponer. Se simula el inventario día a día (stock − demanda pronosticada + llegadas). Un pedido solo se puede colocar un día cuya llegada (día + tiempo de entrega) cae en un día de reparto del proveedor; la cantidad cubre entrega + hueco hasta el siguiente reparto + stock de seguridad, en múltiplos de caja. También agenda las reducciones de pedido por merma.
+- **promo**: qué promocionar. La simulación elige el descuento y también el día de inicio (3 días) que maximiza utilidad − costo de inventario − merma.
+- **staff**: personas y horas necesarias vs. habituales por día.
+Supuestos: los pedidos abiertos llegan a la mitad del plazo de entrega; el proveedor "Weekly" entrega los lunes (el dato no dice el día).
 
 ## Machine learning
 `HistGradientBoostingRegressor` (pérdida Poisson), horizonte directo de 14 días con rezagos ≥14 d (sin fuga). Dos modelos: ventas diarias por tienda y demanda por tienda×SKU (demanda corregida por quiebres de stock). Clima futuro = mismo día del año anterior. Las métricas contra el pronóstico ingenuo quedan en `model_runs`.

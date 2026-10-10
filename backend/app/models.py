@@ -295,3 +295,32 @@ class Recommendation(Base):
     decided_at = Column(DateTime)
     __table_args__ = (CheckConstraint("kind in ('inventory','promotion','staffing')", name="ck_rec_kind"),
                       Index("ix_rec_status", "status", "kind"))
+
+
+class DailyPlan(Base):
+    """What to do, per store and per day: reorder lines, promotions to run, staff to schedule."""
+    __tablename__ = "daily_plan"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    store_id = Column(String(8), ForeignKey("stores.store_id"), nullable=False)
+    plan_date = Column(Date, nullable=False)
+    kind = Column(String(8), nullable=False)           # order | promo | staff
+    sku = Column(String(16), ForeignKey("products.sku"))
+    title = Column(String(200), nullable=False)
+    detail = Column(String(400))
+    qty = Column(Float)                                # units to order / hours required
+    est_impact = Column(Float, default=0.0)            # USD
+    priority = Column(Integer, default=2)              # 1 critical, 2 high, 3 medium
+    rec_id = Column(Integer)                           # linked recommendation (promotions, order reductions)
+    payload = Column(JSON)
+    __table_args__ = (CheckConstraint("kind in ('order','promo','staff')", name="ck_plan_kind"),
+                      Index("ix_plan_store_date", "store_id", "plan_date"))
+
+
+class BacktestResult(Base):
+    """Replay of the inventory policy over the last 28 days of data (see services/backtest.py)."""
+    __tablename__ = "backtest_results"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    window_start = Column(Date)
+    window_end = Column(Date)
+    results = Column(JSON)

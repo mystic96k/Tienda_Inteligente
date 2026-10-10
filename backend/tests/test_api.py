@@ -38,3 +38,25 @@ def test_end_to_end():
         assert "headline" in c.post("/api/ai/brief", json={}).json()           # offline fallback
         r = c.get("/api/recommendations?limit=1").json()[0]
         assert c.post(f"/api/recommendations/{r['id']}/approve").json()["status"] == "approved"
+        # ---- daily plan: per store and per day (reorders, promotions, staffing)
+        sid = stores[0]["store_id"]
+        pl = c.get(f"/api/plan?store_id={sid}").json()
+        assert len(pl["days"]) >= 14 and all(d["staff"] for d in pl["days"])
+        assert any(d["orders"] for d in pl["days"])
+        o = next(i for d in pl["days"] for i in d["orders"] if i["action"] == "reorder")
+        assert o["order_qty"] > 0 and o["order_qty"] % o["case_size"] == 0 and o["arrives"] > o["arrives"][:0]
+        bt = c.get("/api/backtest").json()
+        assert bt["status"] in ("pending", "ready")
+        csvr = c.get("/api/plan/orders.csv?store_id=S001")
+        assert csvr.status_code == 200 and csvr.text.startswith("store_id,order_date")
+        net = c.get("/api/plan/network").json()
+        assert len(net["dates"]) >= 14 and net["cells"]
+        assert c.get("/api/plan?store_id=NOPE").status_code == 404
+        from app.config import settings as _s
+        _s.ADMIN_KEY = "k"
+        try:
+            assert c.post("/api/recommendations/1/dismiss").status_code == 401
+            assert c.post("/api/recommendations/1/dismiss", headers={"X-Admin-Key": "k"}).status_code == 200
+            assert c.get("/api/plan?store_id=S001").status_code == 200      # reads stay open
+        finally:
+            _s.ADMIN_KEY = ""

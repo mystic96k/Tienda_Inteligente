@@ -26,6 +26,21 @@
 <main>
   <section class="kpis" id="kpis" aria-label="Indicadores"></section>
 
+  <section class="glass card rise plan" id="plan" style="--d:.04s" aria-label="Plan del día">
+    <div class="card-h wrap">
+      <div><h2>Plan del día</h2><span class="hint" id="planHint">Qué reponer, qué promocionar y cuánto personal asignar · por sucursal y por día</span></div>
+    </div>
+    <div class="days" id="planDays" role="tablist" aria-label="Día del plan"><i class="dthumb"></i></div>
+    <div id="planBody"></div>
+  </section>
+
+  <section class="glass card rise" id="bt" style="--d:.06s" aria-label="Reproducir el pasado">
+    <div class="card-h wrap">
+      <div><h2>Reproducir el pasado</h2><span class="hint" id="btHint">Si la tienda hubiera seguido nuestra política de pedidos las últimas semanas</span></div>
+    </div>
+    <div id="btBody"><div class="skeleton"></div></div>
+  </section>
+
   <section class="row r-main">
     <article class="glass card rise" style="--d:.05s">
       <div class="card-h"><h2>Ventas netas diarias</h2><span class="hint" id="modelinfo"></span></div>
@@ -84,6 +99,11 @@
   <section class="glass card rise" style="--d:.4s">
     <div class="card-h"><h2>Tiendas</h2><span class="hint">últimos 30 días del dataset</span></div>
     <div class="tbl"><table id="stores"></table></div>
+  </section>
+
+  <section class="glass card rise" id="assump" style="--d:.42s">
+    <div class="card-h"><h2>Supuestos y límites</h2><span class="hint">lo que el modelo asume, con los valores que está usando</span></div>
+    <div id="assumpBody" class="assump"></div>
   </section>
 
   <section class="row r-two">

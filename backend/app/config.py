@@ -21,6 +21,7 @@ class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     EXPORT_API_KEY = os.getenv("EXPORT_API_KEY", "")
+    ADMIN_KEY = os.getenv("ADMIN_KEY", "")   # empty = write actions open (local use); set it for any public demo
     POWERBI_EMBED_URL = os.getenv("POWERBI_EMBED_URL", "")
     # Business assumptions (the dataset has no wage data -> configurable)
     WAGE_PER_HOUR = float(os.getenv("WAGE_PER_HOUR", "17.5"))

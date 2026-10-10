@@ -19,7 +19,9 @@ def _q(db, sql):
 
 
 def run_all(db) -> dict:
+    from . import plan
     fc.forecast_all(db)
+    db.execute(delete(m.DailyPlan))
     db.execute(delete(m.Recommendation).where(m.Recommendation.status == "open"))
     db.commit()
     n_inv, n_promo = inventory_and_promotions(db)
@@ -27,7 +29,9 @@ def run_all(db) -> dict:
     promo_performance(db)
     supplier_performance(db)
     db.commit()
-    return {"inventory": n_inv, "promotion": n_promo, "staffing": n_staff}
+    n_plan = plan.build(db)
+    db.commit()
+    return {"inventory": n_inv, "promotion": n_promo, "staffing": n_staff, "daily_plan_rows": n_plan}
 
 
 # ------------------------------------------------------------------ inventory + promotions
@@ -123,31 +127,42 @@ def inventory_and_promotions(db):
         out = []
         for r in cand.itertuples():
             key, e = (r.store_id, r.sku), max(1, int(round(r.shelf_life_days / 2)))
-            best, base = None, None
-            for dsc in [0.0] + GRID:
-                u = horizon[dsc].get(key)
-                if u is None:
+            base_u = horizon[0.0].get(key)
+            if base_u is None or len(base_u) < 3:
+                continue
+            n = len(base_u)
+            base = _outcome(base_u, r.x, np.full(n, r.list_price_base), r.unit_cost, e)
+            best = None
+            for dsc in GRID:
+                u_d = horizon[dsc].get(key)
+                if u_d is None:
                     continue
-                price = np.array([r.list_price_base * (1 - dsc) if i < 3 else r.list_price_base for i in range(len(u))])
-                val = _outcome(u, r.x, price, r.unit_cost, e)
-                if dsc == 0.0:
-                    base = val
-                elif best is None or val[0] > best[0][0]:
-                    best = (val, dsc)
-            if base and best and best[0][0] - base[0] >= 2.0:
-                out.append((best[0][0] - base[0], r, best[1], best[0], base))
+                uplift = u_d[:3] / np.maximum(base_u[:3], 1e-6)            # model-predicted lift of a 3-day promo
+                for s0 in range(0, min(max(e - 1, 0), n - 3) + 1):          # candidate start days (before the stock expires)
+                    u = base_u.copy()
+                    u[s0:s0 + 3] = base_u[s0:s0 + 3] * uplift
+                    price = np.full(n, r.list_price_base)
+                    price[s0:s0 + 3] = r.list_price_base * (1 - dsc)
+                    val = _outcome(u, r.x, price, r.unit_cost, e)
+                    if best is None or val[0] > best[0][0]:
+                        best = (val, dsc, s0)
+            if best and best[0][0] - base[0] >= 2.0:
+                out.append((best[0][0] - base[0], r, best[1], best[0], base, best[2]))
         by_store = {}
-        for gain, r, dsc, val, base in sorted(out, key=lambda t: -t[0]):
+        f0 = f.forecast_date.min()
+        for gain, r, dsc, val, base, s0 in sorted(out, key=lambda t: -t[0]):
             if by_store.get(r.store_id, 0) >= TOP_PROMO:
                 continue
             by_store[r.store_id] = by_store.get(r.store_id, 0) + 1
             recs.append(m.Recommendation(
                 store_id=r.store_id, kind="promotion", priority=1 if gain >= 10 else 2,
                 title=f"{int(dsc * 100)}% de descuento en {r.product_name}",
-                summary=f"Liquidar {r.x:.0f} unidades antes de caducar (vida útil {r.shelf_life_days:.0f} d). Simulación: "
+                summary=f"Del {(f0 + pd.Timedelta(days=s0)):%d/%m} al {(f0 + pd.Timedelta(days=s0 + 2)):%d/%m}. Liquidar {r.x:.0f} unidades antes de caducar (vida útil {r.shelf_life_days:.0f} d). Simulación: "
                         f"{val[1]:.0f} vendidas con promo vs {base[1]:.0f} sin ella; merma {val[2]:.0f} vs {base[2]:.0f} unidades.",
                 est_impact=round(float(gain), 2),
-                payload=dict(sku=r.sku, product=r.product_name, discount=dsc, days=3, on_hand=float(r.x),
+                payload=dict(sku=r.sku, product=r.product_name, discount=dsc, days=3, start_offset=int(s0),
+                             start_date=str((f0 + pd.Timedelta(days=s0)).date()), end_date=str((f0 + pd.Timedelta(days=s0 + 2)).date()),
+                             on_hand=float(r.x),
                              units_with_promo=round(float(val[1]), 1), units_without=round(float(base[1]), 1),
                              waste_with=round(float(val[2]), 1), waste_without=round(float(base[2]), 1),
                              shelf_life_days=float(r.shelf_life_days))))

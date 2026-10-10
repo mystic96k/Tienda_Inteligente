@@ -63,3 +63,7 @@ FROM supplier_performance sp JOIN suppliers su ON su.supplier_id = sp.supplier_i
 
 CREATE OR REPLACE VIEW rpt.vw_data_quality AS
 SELECT table_name, issue, rows_affected, treatment FROM dq_issues;
+
+CREATE OR REPLACE VIEW rpt.vw_daily_plan AS
+SELECT p.id, p.store_id, s.store_name, p.plan_date, p.kind, p.sku, pr.product_name, p.title, p.detail, p.qty, p.est_impact, p.priority, p.rec_id
+FROM daily_plan p JOIN stores s USING (store_id) LEFT JOIN products pr USING (sku);

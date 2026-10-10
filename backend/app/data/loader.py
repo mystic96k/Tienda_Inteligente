@@ -128,6 +128,17 @@ def load_all():
         stores = stores.head(settings.DEMO_STORES)
     store_ids = set(stores.store_id)
     sites = sites[sites.site_id.isin(set(stores.site_id))]
+    missing_sites = sorted(set(stores.site_id.dropna()) - set(sites.site_id))
+    if missing_sites:  # a store points to a site that is not in sites.csv: keep the store, add a placeholder site
+        sites = pd.concat([sites, pd.DataFrame({"site_id": missing_sites, "site_name": [f"Sitio desconocido ({x})" for x in missing_sites],
+                                                 "site_type": "Unknown", "region": "Unknown",
+                                                 "traffic_tier": round(float(sites.traffic_tier.median()), 2)})],
+                          ignore_index=True)
+    stores_site_null = stores.site_id.isna()
+    if stores_site_null.any():
+        stores = stores[~stores_site_null]
+    dq.add("stores", "store references a site missing from sites.csv", int(stores.site_id.isin(missing_sites).sum()),
+           "store kept; placeholder site row created (unknown type/region, median traffic tier)")
 
     clos = _read("store_closures")
     clos["store_id"] = norm_store(clos.store_id)

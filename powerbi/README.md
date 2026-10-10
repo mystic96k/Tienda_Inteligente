@@ -20,7 +20,7 @@ let
     Forecast = Get("store_forecast")
 in  Forecast
 ```
-Datasets: `stores`, `store_daily_kpis`, `store_forecast`, `demand_forecast`, `staffing_plan`, `recommendations`, `promo_performance`, `supplier_performance`, `dq_issues`.
+Datasets: `stores`, `store_daily_kpis`, `store_forecast`, `demand_forecast`, `staffing_plan`, `recommendations`, `daily_plan`, `promo_performance`, `supplier_performance`, `dq_issues`.
 En el Servicio: credencial anónima y *Omitir prueba de conexión* (la autenticación va en el encabezado).
 
 ## 2. Base de datos directa (recomendado)
@@ -32,7 +32,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA rpt TO powerbi;
 Power BI Desktop → Obtener datos → PostgreSQL → base `retail` → `rpt.vw_*`.
 Cloud SQL no es público por defecto: usa un gateway de datos en una VM de la VPC o el Cloud SQL Auth Proxy.
 
-Vistas: `vw_sales_fact`, `vw_inventory_fact`, `vw_store_kpis`, `vw_store_forecast`, `vw_demand_forecast`, `vw_staffing_plan`, `vw_recommendations`, `vw_promo_performance`, `vw_supplier_performance`, `vw_data_quality`.
+Vistas: `vw_sales_fact`, `vw_inventory_fact`, `vw_store_kpis`, `vw_store_forecast`, `vw_demand_forecast`, `vw_staffing_plan`, `vw_recommendations`, `vw_daily_plan`, `vw_promo_performance`, `vw_supplier_performance`, `vw_data_quality`.
 
 ## Modelo
 Hechos: `vw_sales_fact`, `vw_inventory_fact`, `vw_store_kpis`, `vw_store_forecast`, `vw_staffing_plan`. Dimensiones: tiendas/sitios, producto, `Dim Fecha` (`CALENDARAUTO()`). Relaciones por tienda + fecha.

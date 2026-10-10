@@ -3,6 +3,9 @@
 Recomendaciones por tienda sobre **promociones, inventario y personal**, con ML, Gemini, tablero Liquid Glass y Power BI.
 Datos: [dataset del hackathon Road2Tech](https://github.com/ams-innovation/dataset-hacktahton-road2tech) (sintético, solo uso del evento: **no se sube al repo**; se descarga solo).
 
+## Qué muestra el tablero
+Arriba, **Plan del día**: eliges tienda y fecha y ves qué reponer (con fecha de llegada del proveedor), qué promocionar (con fechas) y cuánto personal asignar. Sin tienda seleccionada muestra el ranking de tiendas para ese día.
+
 ## Estructura
 ```
 backend/app/        API FastAPI, config, modelos SQLAlchemy
@@ -44,3 +47,6 @@ Pon `GEMINI_API_KEY` en `.env` (nunca lo subas). Sin llave hay resúmenes de res
 
 ## Despliegue
 GitHub → Actions → Cloud Run + Cloud SQL: ver `cloud/README.md`.
+
+## Despliegue web
+Ver [docs/DEPLOY.md](docs/DEPLOY.md): túnel rápido, VM con HTTPS (`docker-compose.prod.yml`) o Cloud Run. Para cualquier URL pública define `ADMIN_KEY`.

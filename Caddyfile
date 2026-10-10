@@ -1,0 +1,9 @@
+# SITE_ADDRESS examples:  retail.midominio.com   |   203-0-113-10.sslip.io (no domain needed)   |   :80 (plain HTTP, tests only)
+{$SITE_ADDRESS::80} {
+	encode gzip
+	reverse_proxy api:8000 {
+		transport http {
+			response_header_timeout 180s
+		}
+	}
+}

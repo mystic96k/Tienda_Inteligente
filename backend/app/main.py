@@ -39,6 +39,10 @@ def bootstrap():
             fc.train_all(db)
             status["stage"] = "generando recomendaciones"
             eng.run_all(db)
+        if db.scalar(select(func.count(m.Store.store_id))) and not db.scalar(select(func.count(m.DailyPlan.id))):
+            status["stage"] = "generando el plan diario por sucursal"
+            log.info("building the daily plan")
+            eng.run_all(db)
         if engine.dialect.name == "postgresql" and REPORTING_SQL:
             with engine.begin() as c:
                 for stmt in open(REPORTING_SQL).read().split(";"):
@@ -48,10 +52,25 @@ def bootstrap():
         db.close()
 
 
+def _backtest_if_missing():
+    """The 'replay the past' check runs once, after the dashboard is already usable."""
+    db = SessionLocal()
+    try:
+        if db.scalar(select(func.count(m.Store.store_id))) and not db.scalar(select(func.count(m.BacktestResult.id))):
+            log.info("running the backtest")
+            from .services import backtest
+            backtest.run(db)
+    except Exception:
+        log.exception("backtest failed (the dashboard keeps working)")
+    finally:
+        db.close()
+
+
 def _run():
     try:
         bootstrap()
         status.update(ready=True, stage="listo")
+        _backtest_if_missing()
     except Exception as e:  # keep the API up and report the reason through /api/health
         log.exception("bootstrap failed")
         status.update(error=str(e)[:300], stage="error")

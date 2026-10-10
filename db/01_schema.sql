@@ -3,6 +3,16 @@
 -- Order: dimensions -> facts -> governance -> analytics -> decisions (tables are topologically sorted by FK).
 -- docker compose mounts this folder into postgres:/docker-entrypoint-initdb.d, so a fresh database gets these tables.
 
+CREATE TABLE IF NOT EXISTS backtest_results (
+	id SERIAL NOT NULL, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	window_start DATE, 
+	window_end DATE, 
+	results JSON, 
+	PRIMARY KEY (id)
+);
+
+
 CREATE TABLE IF NOT EXISTS calendar (
 	date DATE NOT NULL, 
 	day_of_week VARCHAR(3), 
@@ -156,6 +166,27 @@ CREATE TABLE IF NOT EXISTS weather_daily (
 	FOREIGN KEY(site_id) REFERENCES sites (site_id)
 );
 
+
+CREATE TABLE IF NOT EXISTS daily_plan (
+	id SERIAL NOT NULL, 
+	store_id VARCHAR(8) NOT NULL, 
+	plan_date DATE NOT NULL, 
+	kind VARCHAR(8) NOT NULL, 
+	sku VARCHAR(16), 
+	title VARCHAR(200) NOT NULL, 
+	detail VARCHAR(400), 
+	qty FLOAT, 
+	est_impact FLOAT, 
+	priority INTEGER, 
+	rec_id INTEGER, 
+	payload JSON, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_plan_kind CHECK (kind in ('order','promo','staff')), 
+	FOREIGN KEY(store_id) REFERENCES stores (store_id), 
+	FOREIGN KEY(sku) REFERENCES products (sku)
+);
+
+CREATE INDEX IF NOT EXISTS ix_plan_store_date ON daily_plan (store_id, plan_date);
 
 CREATE TABLE IF NOT EXISTS demand_forecast (
 	store_id VARCHAR(8) NOT NULL, 

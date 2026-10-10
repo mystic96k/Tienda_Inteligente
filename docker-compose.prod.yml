@@ -1,0 +1,44 @@
+# Production-style stack for a single VM:   docker compose -f docker-compose.prod.yml up -d --build
+#   * Caddy gets and renews the HTTPS certificate by itself (set SITE_ADDRESS in .env)
+#   * the API container also serves the dashboard, so there is no separate web container
+#   * PostgreSQL is NOT published to the internet
+# Needs a VM with >= 4 GB RAM, ports 80 and 443 open.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: retail
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: retail
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U retail"], interval: 5s, retries: 12}
+
+  api:
+    build: {context: ., dockerfile: Dockerfile}
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://retail:${DB_PASSWORD}@db:5432/retail
+    depends_on:
+      db: {condition: service_healthy}
+    volumes:
+      - models:/srv/models
+      - dataset:/data
+    expose: ["8000"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ["80:80", "443:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes: {pgdata: {}, models: {}, dataset: {}, caddy_data: {}, caddy_config: {}}
